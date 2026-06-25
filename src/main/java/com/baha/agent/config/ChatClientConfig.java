@@ -1,7 +1,5 @@
 package com.baha.agent.config;
 
-import com.baha.agent.agent.RecordingToolCallback;
-import com.baha.agent.agent.ToolCallRecorder;
 import com.baha.agent.tools.CalculatorTool;
 import com.baha.agent.tools.TimeTool;
 import com.baha.agent.tools.WeatherTool;
@@ -13,7 +11,6 @@ import org.springframework.ai.tool.ToolCallback;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.util.Arrays;
 import java.util.List;
 
 @Configuration
@@ -26,26 +23,27 @@ public class ChatClientConfig {
             result. If a tool returns an error, tell the user plainly.""";
 
     /**
-     * Wrap each @Tool bean's callback in a RecordingToolCallback. Registering
-     * explicit callbacks (rather than relying on bean scanning) also sidesteps
-     * spring-ai#5134.
+     * The raw (unwrapped) tool callbacks for the 4 @Tool beans. AgentService
+     * wraps these per-call in a RecordingToolCallback bound to a fresh
+     * ToolCallSink (reactive-safe capture); the MCP server exposes them as-is.
+     * Building explicit callbacks (not bean scanning) also sidesteps spring-ai#5134.
      */
     @Bean
     public AgentTools agentTools(CalculatorTool calculator, TimeTool time,
-                                 WeatherTool weather, WebFetchTool webFetch,
-                                 ToolCallRecorder recorder) {
+                                 WeatherTool weather, WebFetchTool webFetch) {
         ToolCallback[] raw = ToolCallbacks.from(calculator, time, weather, webFetch);
-        List<ToolCallback> recording = Arrays.stream(raw)
-                .map(cb -> (ToolCallback) new RecordingToolCallback(cb, recorder))
-                .toList();
-        return new AgentTools(recording);
+        return new AgentTools(List.of(raw));
     }
 
+    /**
+     * ChatClient with the system prompt only. Tool callbacks are supplied
+     * per-request by AgentService (so each turn gets its own recording sink),
+     * never as defaults — that keeps capture call-scoped and reactive-safe.
+     */
     @Bean
-    public ChatClient agentChatClient(ChatModel chatModel, AgentTools agentTools) {
+    public ChatClient agentChatClient(ChatModel chatModel) {
         return ChatClient.builder(chatModel)
                 .defaultSystem(SYSTEM_PROMPT)
-                .defaultToolCallbacks(agentTools.callbacks().toArray(new ToolCallback[0]))
                 .build();
     }
 }

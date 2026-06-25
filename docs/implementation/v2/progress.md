@@ -2,7 +2,17 @@
 
 Re-read first on any fresh/resumed session. Update after EVERY task.
 
-## Status: PLAN COMPLETE — awaiting approval. No v2 code written. v1 is merged on main (37 tests, gating CI).
+## Status: BUILDING on feat/v2-extensions. Feature B (Postgres memory) DONE. Now Feature A (streaming).
+
+### Env note (Docker 29 + Testcontainers)
+Docker Engine 29 min API = 1.44; Testcontainers' docker-java 3.4.2 probes v1.43 → 400. Fixed locally via `~/.docker-java.properties` (`api.version=1.44` + DOCKER_HOST). CI's Docker is compatible. ITs run under maven-failsafe in the verify phase.
+
+### Done + verified
+- B-T1: `ChatMemoryStore` interface + `InMemoryChatMemoryStore` (refactor, 37 green).
+- B-T2: `JdbcChatMemoryStore` + Flyway `V1__chat_message.sql` + Testcontainers IT (5). Failsafe wired.
+- B-T3: postgres profile (re-enables JDBC/Flyway), docker-compose.yml; MemoryWiring tests. App boots DB-less AND under postgres profile. SpotBugs clean.
+
+## Original plan status below.
 
 ## Done + verified
 - v2 plan authored under `docs/implementation/v2/`: constitution, research, requirements, architecture, design, implementation-plan, validation-plan + prompts.
