@@ -4,3 +4,7 @@ target/
 *.iml
 .DS_Store
 .env
+
+# Local secrets — Spring auto-loads ./config/, outside src so never packaged.
+# The real file is ignored; the .example is tracked as a template.
+/config/application.properties
