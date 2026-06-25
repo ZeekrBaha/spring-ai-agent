@@ -26,6 +26,10 @@ jobs:
     name: Dependency vulnerability review
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    # Informational: requires the repo's Dependency Graph feature; never blocks the PR.
+    continue-on-error: true
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - name: Scan dependencies for known CVEs
