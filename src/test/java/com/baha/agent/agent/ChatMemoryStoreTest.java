@@ -32,6 +32,18 @@ class ChatMemoryStoreTest {
     }
 
     @Test
+    void boundedConversationCountEvictsOldest() {
+        ChatMemoryStore store = new ChatMemoryStore(20, 2);
+        store.append("c1", new UserMessage("u1"));
+        store.append("c2", new UserMessage("u2"));
+        store.append("c3", new UserMessage("u3")); // evicts c1 (oldest)
+
+        assertThat(store.history("c1")).isEmpty();
+        assertThat(store.history("c2")).extracting(Message::getText).containsExactly("u2");
+        assertThat(store.history("c3")).extracting(Message::getText).containsExactly("u3");
+    }
+
+    @Test
     void historyIsolatedPerConversation() {
         ChatMemoryStore store = new ChatMemoryStore(20);
         store.append("c1", new UserMessage("u1"), new AssistantMessage("a1"));

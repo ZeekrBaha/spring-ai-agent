@@ -44,6 +44,12 @@ class WebFetchToolTest {
     }
 
     @Test
+    void blocksIpv6UniqueLocal() {
+        // fc00::/7 ULA is internal but Java's isSiteLocalAddress() misses it.
+        assertThat(guardTool.fetchUrl("http://[fd00::1]/")).startsWith("Blocked");
+    }
+
+    @Test
     void blocksPrivateRanges() {
         assertThat(guardTool.fetchUrl("http://10.0.0.5/")).startsWith("Blocked");
         assertThat(guardTool.fetchUrl("http://192.168.1.1/")).startsWith("Blocked");

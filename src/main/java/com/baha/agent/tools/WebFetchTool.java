@@ -2,18 +2,32 @@ package com.baha.agent.tools;
 
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.UnknownHostException;
+import java.net.http.HttpClient;
 import java.util.Set;
 
 /**
  * Web-fetch tool exposed to the agent. Fetches readable text from a PUBLIC
- * http/https page. Sink with ONE declared network boundary. Hardened against
- * SSRF: scheme allowlist + rejection of loopback/private/link-local hosts.
+ * http/https page. Sink with ONE declared network boundary.
+ *
+ * <p>SSRF defenses: scheme allowlist; rejection of loopback / any-local /
+ * link-local / site-local / IPv6 unique-local (fc00::/7) / multicast targets;
+ * and redirects disabled so a public page cannot 3xx-bounce to an internal
+ * address.
+ *
+ * <p>Residual (documented) limitation: the guard validates the host's resolved
+ * address, then the HTTP client resolves again at connect time — a classic
+ * TOCTOU. A determined attacker controlling a domain with very low-TTL DNS
+ * could rebind between the two lookups. Fully closing this needs address
+ * pinning at the socket layer; out of scope for this MVP and noted in
+ * validation-report.md.
  */
 @Component
 public class WebFetchTool {
@@ -32,7 +46,10 @@ public class WebFetchTool {
 
     @Autowired
     public WebFetchTool(RestClient.Builder builder) {
-        this(builder.build(), InetAddress::getAllByName);
+        // Pin redirects to NEVER so a public page can't bounce to an internal host.
+        this(builder.requestFactory(new JdkClientHttpRequestFactory(
+                HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).build())).build(),
+                InetAddress::getAllByName);
     }
 
     WebFetchTool(RestClient http, HostResolver resolver) {
@@ -85,7 +102,13 @@ public class WebFetchTool {
                 || addr.isAnyLocalAddress()
                 || addr.isLinkLocalAddress()
                 || addr.isSiteLocalAddress()
-                || addr.isMulticastAddress();
+                || addr.isMulticastAddress()
+                || isUniqueLocalIpv6(addr);
+    }
+
+    /** IPv6 unique-local addresses (fc00::/7) — internal, but missed by isSiteLocalAddress(). */
+    private boolean isUniqueLocalIpv6(InetAddress addr) {
+        return addr instanceof Inet6Address && (addr.getAddress()[0] & 0xfe) == 0xfc;
     }
 
     private String clean(String body) {

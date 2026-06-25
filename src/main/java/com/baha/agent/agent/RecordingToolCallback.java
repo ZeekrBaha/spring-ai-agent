@@ -1,5 +1,7 @@
 package com.baha.agent.agent;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
@@ -11,12 +13,21 @@ import org.springframework.ai.tool.metadata.ToolMetadata;
  */
 public class RecordingToolCallback implements ToolCallback {
 
+    private static final Logger log = LoggerFactory.getLogger(RecordingToolCallback.class);
+
     private final ToolCallback delegate;
     private final ToolCallRecorder recorder;
 
     public RecordingToolCallback(ToolCallback delegate, ToolCallRecorder recorder) {
         this.delegate = delegate;
         this.recorder = recorder;
+    }
+
+    /** Record + log the invocation by tool name only (args may contain sensitive input). */
+    private void track() {
+        String name = delegate.getToolDefinition().name();
+        recorder.record(name);
+        log.info("tool call: {}", name);
     }
 
     @Override
@@ -31,13 +42,13 @@ public class RecordingToolCallback implements ToolCallback {
 
     @Override
     public String call(String toolInput) {
-        recorder.record(delegate.getToolDefinition().name());
+        track();
         return delegate.call(toolInput);
     }
 
     @Override
     public String call(String toolInput, ToolContext toolContext) {
-        recorder.record(delegate.getToolDefinition().name());
+        track();
         return delegate.call(toolInput, toolContext);
     }
 }

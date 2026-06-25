@@ -29,6 +29,12 @@ class CalculatorToolTest {
     }
 
     @Test
+    void largeIntegralResultIsNotNarrowedToLong() {
+        // 10^20 exceeds long range; must not silently become Long.MAX_VALUE.
+        assertThat(tool.calculate("10^20")).isEqualTo("1.0E20");
+    }
+
+    @Test
     void malformedExpressionReturnsClearError() {
         assertThat(tool.calculate("2 +")).startsWith("Invalid expression");
     }
