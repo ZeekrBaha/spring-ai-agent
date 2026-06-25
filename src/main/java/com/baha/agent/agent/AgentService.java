@@ -1,6 +1,8 @@
 package com.baha.agent.agent;
 
 import com.baha.agent.config.AgentTools;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
@@ -27,14 +29,20 @@ public class AgentService {
     private final ChatClient chatClient;
     private final AgentTools agentTools;
     private final ChatMemoryStore memory;
+    private final MeterRegistry meterRegistry;
+    private final Counter chatRequests;
 
-    public AgentService(ChatClient chatClient, AgentTools agentTools, ChatMemoryStore memory) {
+    public AgentService(ChatClient chatClient, AgentTools agentTools, ChatMemoryStore memory,
+                        MeterRegistry meterRegistry) {
         this.chatClient = chatClient;
         this.agentTools = agentTools;
         this.memory = memory;
+        this.meterRegistry = meterRegistry;
+        this.chatRequests = Counter.builder("agent.chat.requests").register(meterRegistry);
     }
 
     public ChatResult chat(String message, String conversationId) {
+        chatRequests.increment();
         List<Message> history = memory.history(conversationId);
         ToolCallSink sink = new ToolCallSink();
 
@@ -66,6 +74,7 @@ public class AgentService {
      * upstream failure terminates as a single {@code error} event (no hang).
      */
     public Flux<ChatStreamEvent> chatStream(String message, String conversationId) {
+        chatRequests.increment();
         List<Message> history = memory.history(conversationId);
         ToolCallSink sink = new ToolCallSink();
         StringBuilder full = new StringBuilder();
@@ -93,7 +102,7 @@ public class AgentService {
     /** Wrap the raw tool callbacks for this call so invocations land in {@code sink}. */
     List<ToolCallback> recordingCallbacks(ToolCallSink sink) {
         return agentTools.callbacks().stream()
-                .map(cb -> (ToolCallback) new RecordingToolCallback(cb, sink))
+                .map(cb -> (ToolCallback) new RecordingToolCallback(cb, sink, meterRegistry))
                 .toList();
     }
 }

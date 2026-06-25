@@ -1,6 +1,7 @@
 package com.baha.agent.agent;
 
 import com.baha.agent.tools.CalculatorTool;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.support.ToolCallbacks;
 import org.springframework.ai.tool.ToolCallback;
@@ -13,7 +14,7 @@ class RecordingToolCallbackTest {
     void recordsToolNameIntoSinkAndDelegatesResult() {
         ToolCallback raw = ToolCallbacks.from(new CalculatorTool())[0];
         ToolCallSink sink = new ToolCallSink();
-        ToolCallback wrapped = new RecordingToolCallback(raw, sink);
+        ToolCallback wrapped = new RecordingToolCallback(raw, sink, new SimpleMeterRegistry());
 
         String result = wrapped.call("{\"expression\":\"2 + 2\"}");
 
@@ -24,7 +25,7 @@ class RecordingToolCallbackTest {
     @Test
     void delegatesToolDefinitionName() {
         ToolCallback raw = ToolCallbacks.from(new CalculatorTool())[0];
-        ToolCallback wrapped = new RecordingToolCallback(raw, new ToolCallSink());
+        ToolCallback wrapped = new RecordingToolCallback(raw, new ToolCallSink(), new SimpleMeterRegistry());
 
         assertThat(wrapped.getToolDefinition().name()).isEqualTo("calculate");
     }

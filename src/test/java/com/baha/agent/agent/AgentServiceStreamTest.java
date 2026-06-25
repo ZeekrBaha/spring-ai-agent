@@ -1,6 +1,7 @@
 package com.baha.agent.agent;
 
 import com.baha.agent.config.AgentTools;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.client.ChatClient;
 import reactor.core.publisher.Flux;
@@ -30,7 +31,7 @@ class AgentServiceStreamTest {
     @Test
     void emitsTokensThenTerminalDoneWithFullReply() {
         ChatMemoryStore memory = new InMemoryChatMemoryStore(20);
-        AgentService service = new AgentService(mockStreaming(Flux.just("Hel", "lo")), noTools, memory);
+        AgentService service = new AgentService(mockStreaming(Flux.just("Hel", "lo")), noTools, memory, new SimpleMeterRegistry());
 
         StepVerifier.create(service.chatStream("hi", "c1"))
                 .assertNext(e -> { assertThat(e.type()).isEqualTo("token"); assertThat(e.text()).isEqualTo("Hel"); })
@@ -47,7 +48,7 @@ class AgentServiceStreamTest {
     @Test
     void persistsFullReplyToMemoryOnCompletion() {
         ChatMemoryStore memory = new InMemoryChatMemoryStore(20);
-        AgentService service = new AgentService(mockStreaming(Flux.just("a", "b")), noTools, memory);
+        AgentService service = new AgentService(mockStreaming(Flux.just("a", "b")), noTools, memory, new SimpleMeterRegistry());
 
         service.chatStream("q", "c1").blockLast();
 
@@ -59,7 +60,7 @@ class AgentServiceStreamTest {
     void streamErrorEmitsTerminalErrorEvent() {
         ChatMemoryStore memory = new InMemoryChatMemoryStore(20);
         AgentService service = new AgentService(
-                mockStreaming(Flux.error(new RuntimeException("upstream boom"))), noTools, memory);
+                mockStreaming(Flux.error(new RuntimeException("upstream boom"))), noTools, memory, new SimpleMeterRegistry());
 
         StepVerifier.create(service.chatStream("hi", "c1"))
                 .assertNext(e -> {

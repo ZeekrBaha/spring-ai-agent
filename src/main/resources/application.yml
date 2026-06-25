@@ -24,6 +24,17 @@ spring:
 server:
   port: 8080
 
+# Observability: expose only health, info, and the Prometheus scrape endpoint —
+# never env/heapdump/etc.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: never
+
 logging:
   level:
     com.baha.agent: INFO

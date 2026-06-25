@@ -1,6 +1,7 @@
 package com.baha.agent.agent;
 
 import com.baha.agent.config.AgentTools;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.client.ChatClient;
 
@@ -19,7 +20,7 @@ class AgentServiceTest {
     private final AgentTools noTools = new AgentTools(List.of());
 
     private AgentService serviceWith(ChatClient client, ChatMemoryStore memory) {
-        return new AgentService(client, noTools, memory);
+        return new AgentService(client, noTools, memory, new SimpleMeterRegistry());
     }
 
     private ChatClient mockReplying(String content) {
@@ -47,7 +48,8 @@ class AgentServiceTest {
                 .user(anyString()).call().content())
                 .thenThrow(new RuntimeException("openai unreachable"));
 
-        AgentService service = serviceWith(client, new InMemoryChatMemoryStore(20));
+        AgentService service = new AgentService(client, noTools, new InMemoryChatMemoryStore(20),
+                new SimpleMeterRegistry());
 
         assertThatThrownBy(() -> service.chat("hi", "conv-1"))
                 .isInstanceOf(AgentUpstreamException.class);
