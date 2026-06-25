@@ -40,6 +40,17 @@ class ChatControllerTest {
     }
 
     @Test
+    void agentFailureReturnsFriendlyError() throws Exception {
+        when(agentService.chat(anyString(), anyString()))
+                .thenThrow(new RuntimeException("upstream model error"));
+
+        mvc.perform(post("/api/chat").contentType(APPLICATION_JSON)
+                        .content("{\"message\":\"hi\"}"))
+                .andExpect(status().isBadGateway())
+                .andExpect(jsonPath("$.error").isNotEmpty());
+    }
+
+    @Test
     void blankMessageReturns400() throws Exception {
         mvc.perform(post("/api/chat").contentType(APPLICATION_JSON)
                         .content("{\"message\":\"   \"}"))

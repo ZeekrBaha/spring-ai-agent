@@ -3,7 +3,10 @@ spring:
     name: spring-ai-agent
   ai:
     openai:
-      api-key: ${OPENAI_API_KEY}
+      # Placeholder default so the app boots and serves the UI without a key;
+      # real key set via the OPENAI_API_KEY env var. Chat calls without a real
+      # key degrade to a friendly 502 (see GlobalExceptionHandler).
+      api-key: ${OPENAI_API_KEY:not-set}
       chat:
         options:
           model: gpt-4o-mini
