@@ -27,3 +27,24 @@ server:
 logging:
   level:
     com.baha.agent: INFO
+
+agent:
+  memory:
+    max-messages: 20
+
+---
+# Postgres profile: re-enable JDBC + Flyway and point at a database.
+# Connection defaults match docker-compose.yml; override via POSTGRES_* env vars.
+# (Under Testcontainers @ServiceConnection the URL/credentials are injected.)
+spring:
+  config:
+    activate:
+      on-profile: postgres
+  autoconfigure:
+    exclude: []
+  datasource:
+    url: ${POSTGRES_URL:jdbc:postgresql://localhost:5432/agent}
+    username: ${POSTGRES_USER:agent}
+    password: ${POSTGRES_PASSWORD:agent}
+  flyway:
+    enabled: true

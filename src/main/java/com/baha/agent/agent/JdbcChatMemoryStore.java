@@ -3,6 +3,8 @@ package com.baha.agent.agent;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -33,11 +35,9 @@ public class JdbcChatMemoryStore implements ChatMemoryStore {
     private final JdbcTemplate jdbc;
     private final int maxMessages;
 
-    public JdbcChatMemoryStore(JdbcTemplate jdbc) {
-        this(jdbc, 20);
-    }
-
-    public JdbcChatMemoryStore(JdbcTemplate jdbc, int maxMessages) {
+    @Autowired
+    public JdbcChatMemoryStore(JdbcTemplate jdbc,
+                               @Value("${agent.memory.max-messages:20}") int maxMessages) {
         this.jdbc = jdbc;
         this.maxMessages = maxMessages;
     }

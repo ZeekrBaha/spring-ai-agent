@@ -1,0 +1,26 @@
+# Local Postgres for the `postgres` profile (persistent conversation memory).
+#   docker compose up -d
+#   OPENAI_API_KEY=sk-... mvn spring-boot:run -Dspring-boot.run.profiles=postgres
+#
+# Credentials default to local-only dev values; override via the same env vars
+# the app reads (POSTGRES_USER / POSTGRES_PASSWORD). No secret is committed.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: spring-ai-agent-postgres
+    environment:
+      POSTGRES_DB: agent
+      POSTGRES_USER: ${POSTGRES_USER:-agent}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agent}
+    ports:
+      - "5432:5432"
+    volumes:
+      - agent_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-agent} -d agent"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  agent_pgdata:
