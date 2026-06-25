@@ -2,6 +2,7 @@ package com.baha.agent.tools;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.ai.tool.annotation.Tool;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -21,6 +22,7 @@ public class WeatherTool {
 
     private final RestClient http;
 
+    @Autowired
     public WeatherTool(RestClient.Builder builder) {
         this(builder.build());
     }

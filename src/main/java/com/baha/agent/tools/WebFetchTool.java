@@ -1,6 +1,7 @@
 package com.baha.agent.tools;
 
 import org.springframework.ai.tool.annotation.Tool;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -29,6 +30,7 @@ public class WebFetchTool {
     private final RestClient http;
     private final HostResolver resolver;
 
+    @Autowired
     public WebFetchTool(RestClient.Builder builder) {
         this(builder.build(), InetAddress::getAllByName);
     }
