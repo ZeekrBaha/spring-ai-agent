@@ -2,7 +2,7 @@
 
 Re-read this first on any fresh/resumed session.
 
-## Status: BUILD COMPLETE — 34 tests green, refutation findings fixed. One gate left: live LLM eval (needs OPENAI_API_KEY).
+## Status: COMPLETE — 34 tests green, refutation fixed, LIVE LLM EVAL PASSED (2026-06-25, gpt-4o-mini). All gates closed.
 
 ## Done + verified (TDD, RED→GREEN watched each task)
 - T0/T1 scaffold — **Spring Boot 3.5.5 + Spring AI 1.1.2 + Java 21** (NOT Boot 4; see decision). contextLoads green.

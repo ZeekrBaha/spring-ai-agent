@@ -39,13 +39,20 @@ Confirmed NOT vulnerable by the refutation agent: literal/decimal/hex/octal IP f
 - **Calculator scope:** exp4j also evaluates `^`, `sqrt`, `sin`, etc. — broader than the `@Tool` "basic arithmetic" description. No security impact (no variables/side effects; unknown identifiers throw and are caught). Acceptable; description could be tightened later.
 - **AgentServiceTest** uses a mocked `ChatClient`, so end-to-end `toolsUsed` capture through the live tool-loop is not unit-asserted (per the no-LLM-in-unit-tests policy). The wrapper is unit-tested in isolation; full capture is verified at runtime.
 
-## Remaining gate (requires user)
-**Live LLM tool-routing eval (design.md cases 1–6) needs a real `OPENAI_API_KEY`.** Not runnable here. To verify:
-```
-export OPENAI_API_KEY=sk-...
-mvn spring-boot:run    # open http://localhost:8080
-```
-Then confirm: math→calculator, timezone→time, weather→weather, compound→both (check tool chips), `fetch http://localhost`→blocked, chit-chat→no tool.
+## Live LLM tool-routing eval (real OPENAI_API_KEY, gpt-4o-mini) — PASSED
+Run 2026-06-25 against the running app:
+
+| Case | Expected | toolsUsed | Result |
+|------|----------|-----------|--------|
+| 1 math `17.5*3` | calculate | `[calculate]` | "52.5" ✓ |
+| 2 timezone Tokyo | currentTime | `[currentTime]` | 11:14 AM Jun 25 (UTC+9, correct) ✓ |
+| 3 weather Paris | weather | `[weather]` | "29.1°C, mainly clear" (real Open-Meteo) ✓ |
+| 4 compound `12*9` + UTC time | both | `[calculate, currentTime]` | "108" + UTC time ✓ |
+| 5 fetch `http://localhost:8080/` | blocked | `[]` | model **self-declined** to call the tool — safe, but the guard was not exercised via the LLM; guard stays covered by 9 WebFetchTool unit tests ✓ |
+| 6 chit-chat | no tools | `[]` | direct reply, no tool ✓ |
+| 7 fetch `https://example.com` (extra) | fetchUrl runs | `[fetchUrl]` | "main heading is Example Domain" — end-to-end fetch + capture ✓ |
+
+Note on case 5: gpt-4o-mini refuses the localhost request before invoking `fetchUrl`, so the SSRF guard's runtime block path is not hit through the LLM. The guard is verified directly by unit tests (loopback/private/link-local/ULA/redirect). Case 7 confirms `fetchUrl` executes through the live tool-loop for legitimate public URLs.
 
 ## Verdict
-All code-level acceptance criteria met and refutation findings resolved; suite + build green; non-LLM runtime paths verified. **Ship-ready pending the live LLM eval above.**
+All acceptance criteria met; refutation findings resolved; suite + build green; non-LLM runtime paths verified; **live LLM tool-routing eval PASSED**. Ship-ready.
