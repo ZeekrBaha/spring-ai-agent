@@ -30,11 +30,17 @@ public class AgentService {
         List<Message> history = memory.history(conversationId);
 
         recorder.start();
-        String reply = chatClient.prompt()
-                .messages(history)
-                .user(message)
-                .call()
-                .content();
+        String reply;
+        try {
+            reply = chatClient.prompt()
+                    .messages(history)
+                    .user(message)
+                    .call()
+                    .content();
+        } catch (RuntimeException e) {
+            // Model/tool-loop failure (network, auth, rate limit) — not our bug.
+            throw new AgentUpstreamException(e);
+        }
         List<String> toolsUsed = recorder.drain();
 
         memory.append(conversationId, new UserMessage(message), new AssistantMessage(reply));

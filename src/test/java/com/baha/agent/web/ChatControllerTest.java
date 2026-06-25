@@ -1,6 +1,7 @@
 package com.baha.agent.web;
 
 import com.baha.agent.agent.AgentService;
+import com.baha.agent.agent.AgentUpstreamException;
 import com.baha.agent.agent.ChatResult;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,14 +41,25 @@ class ChatControllerTest {
     }
 
     @Test
-    void agentFailureReturnsFriendlyError() throws Exception {
+    void upstreamModelFailureReturnsFriendly502() throws Exception {
         when(agentService.chat(anyString(), anyString()))
-                .thenThrow(new RuntimeException("upstream model error"));
+                .thenThrow(new AgentUpstreamException(new RuntimeException("openai 401")));
 
         mvc.perform(post("/api/chat").contentType(APPLICATION_JSON)
                         .content("{\"message\":\"hi\"}"))
                 .andExpect(status().isBadGateway())
                 .andExpect(jsonPath("$.error").isNotEmpty());
+    }
+
+    @Test
+    void genuineBugSurfacesAs500NotMaskedAs502() throws Exception {
+        // A real defect (e.g. NPE/ISE) must NOT be disguised as an upstream error.
+        when(agentService.chat(anyString(), anyString()))
+                .thenThrow(new IllegalStateException("internal bug"));
+
+        mvc.perform(post("/api/chat").contentType(APPLICATION_JSON)
+                        .content("{\"message\":\"hi\"}"))
+                .andExpect(status().isInternalServerError());
     }
 
     @Test
