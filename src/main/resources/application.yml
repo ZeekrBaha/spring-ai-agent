@@ -10,6 +10,12 @@ spring:
       - org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration
       - org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration
   ai:
+    mcp:
+      server:
+        name: spring-ai-agent-mcp
+        version: 0.1.0
+        type: SYNC
+        sse-message-endpoint: /mcp/messages
     openai:
       # Placeholder default so the app boots and serves the UI without a key;
       # real key set via the OPENAI_API_KEY env var. Chat calls without a real
