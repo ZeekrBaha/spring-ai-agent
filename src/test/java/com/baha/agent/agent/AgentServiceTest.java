@@ -1,7 +1,11 @@
 package com.baha.agent.agent;
 
+import com.baha.agent.config.AgentTools;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.client.ChatClient;
+
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -13,13 +17,24 @@ import static org.mockito.Mockito.when;
 
 class AgentServiceTest {
 
+    private final AgentTools noTools = new AgentTools(List.of());
+
+    private AgentService serviceWith(ChatClient client, ChatMemoryStore memory) {
+        return new AgentService(client, noTools, memory, new SimpleMeterRegistry());
+    }
+
+    private ChatClient mockReplying(String content) {
+        ChatClient client = mock(ChatClient.class, RETURNS_DEEP_STUBS);
+        when(client.prompt().toolCallbacks(anyList()).messages(anyList())
+                .user(anyString()).call().content())
+                .thenReturn(content);
+        return client;
+    }
+
     @Test
     void returnsReplyAndEmptyToolsWhenNoToolUsed() {
-        ChatClient client = mock(ChatClient.class, RETURNS_DEEP_STUBS);
-        when(client.prompt().messages(anyList()).user(anyString()).call().content())
-                .thenReturn("Hello there.");
+        AgentService service = serviceWith(mockReplying("Hello there."), new InMemoryChatMemoryStore(20));
 
-        AgentService service = new AgentService(client, new ToolCallRecorder(), new ChatMemoryStore(20));
         ChatResult result = service.chat("hi", "conv-1");
 
         assertThat(result.reply()).isEqualTo("Hello there.");
@@ -29,10 +44,12 @@ class AgentServiceTest {
     @Test
     void modelCallFailureIsWrappedAsUpstreamException() {
         ChatClient client = mock(ChatClient.class, RETURNS_DEEP_STUBS);
-        when(client.prompt().messages(anyList()).user(anyString()).call().content())
+        when(client.prompt().toolCallbacks(anyList()).messages(anyList())
+                .user(anyString()).call().content())
                 .thenThrow(new RuntimeException("openai unreachable"));
 
-        AgentService service = new AgentService(client, new ToolCallRecorder(), new ChatMemoryStore(20));
+        AgentService service = new AgentService(client, noTools, new InMemoryChatMemoryStore(20),
+                new SimpleMeterRegistry());
 
         assertThatThrownBy(() -> service.chat("hi", "conv-1"))
                 .isInstanceOf(AgentUpstreamException.class);
@@ -40,12 +57,9 @@ class AgentServiceTest {
 
     @Test
     void nullModelContentBecomesEmptyReplyNotNpe() {
-        ChatClient client = mock(ChatClient.class, RETURNS_DEEP_STUBS);
-        when(client.prompt().messages(anyList()).user(anyString()).call().content())
-                .thenReturn(null);
-        ChatMemoryStore memory = new ChatMemoryStore(20);
+        ChatMemoryStore memory = new InMemoryChatMemoryStore(20);
+        AgentService service = serviceWith(mockReplying(null), memory);
 
-        AgentService service = new AgentService(client, new ToolCallRecorder(), memory);
         ChatResult result = service.chat("hi", "conv-1");
 
         assertThat(result.reply()).isEmpty();
@@ -55,16 +69,12 @@ class AgentServiceTest {
 
     @Test
     void persistsTurnToMemory() {
-        ChatClient client = mock(ChatClient.class, RETURNS_DEEP_STUBS);
-        when(client.prompt().messages(anyList()).user(anyString()).call().content())
-                .thenReturn("reply");
-        ChatMemoryStore memory = new ChatMemoryStore(20);
+        ChatMemoryStore memory = new InMemoryChatMemoryStore(20);
+        AgentService service = serviceWith(mockReplying("reply"), memory);
 
-        AgentService service = new AgentService(client, new ToolCallRecorder(), memory);
         service.chat("question", "conv-1");
 
-        assertThat(memory.history("conv-1"))
-                .extracting(m -> m.getText())
+        assertThat(memory.history("conv-1")).extracting(m -> m.getText())
                 .containsExactly("question", "reply");
     }
 }

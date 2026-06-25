@@ -1,0 +1,16 @@
+# MCP server over stdio (for Claude Desktop / Cursor / any stdio MCP client).
+#   java -Dspring.profiles.active=mcp-stdio -jar agent.jar
+#
+# stdout MUST carry only the MCP JSON-RPC protocol — so the web server and the
+# banner are off and all logging is routed to stderr (logback-mcp-stdio.xml).
+spring:
+  main:
+    web-application-type: none
+    banner-mode: "off"
+  ai:
+    mcp:
+      server:
+        stdio: true
+
+logging:
+  config: classpath:logback-mcp-stdio.xml

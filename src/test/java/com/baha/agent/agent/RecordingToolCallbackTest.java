@@ -1,6 +1,7 @@
 package com.baha.agent.agent;
 
 import com.baha.agent.tools.CalculatorTool;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.support.ToolCallbacks;
 import org.springframework.ai.tool.ToolCallback;
@@ -10,27 +11,22 @@ import static org.assertj.core.api.Assertions.assertThat;
 class RecordingToolCallbackTest {
 
     @Test
-    void recordsToolNameAndDelegatesResult() {
+    void recordsToolNameIntoSinkAndDelegatesResult() {
         ToolCallback raw = ToolCallbacks.from(new CalculatorTool())[0];
-        ToolCallRecorder recorder = new ToolCallRecorder();
-        ToolCallback wrapped = new RecordingToolCallback(raw, recorder);
+        ToolCallSink sink = new ToolCallSink();
+        ToolCallback wrapped = new RecordingToolCallback(raw, sink, new SimpleMeterRegistry());
 
-        recorder.start();
         String result = wrapped.call("{\"expression\":\"2 + 2\"}");
 
         assertThat(result).isEqualTo("4");
-        assertThat(recorder.drain()).containsExactly("calculate");
+        assertThat(sink.usedTools()).containsExactly("calculate");
     }
 
     @Test
-    void drainDedupesAndClears() {
-        ToolCallRecorder recorder = new ToolCallRecorder();
-        recorder.start();
-        recorder.record("weather");
-        recorder.record("weather");
-        recorder.record("calculate");
+    void delegatesToolDefinitionName() {
+        ToolCallback raw = ToolCallbacks.from(new CalculatorTool())[0];
+        ToolCallback wrapped = new RecordingToolCallback(raw, new ToolCallSink(), new SimpleMeterRegistry());
 
-        assertThat(recorder.drain()).containsExactly("weather", "calculate");
-        assertThat(recorder.drain()).isEmpty();
+        assertThat(wrapped.getToolDefinition().name()).isEqualTo("calculate");
     }
 }

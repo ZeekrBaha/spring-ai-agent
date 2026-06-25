@@ -11,7 +11,7 @@ class ChatMemoryStoreTest {
 
     @Test
     void appendThenHistoryReturnsMessagesInOrder() {
-        ChatMemoryStore store = new ChatMemoryStore(20);
+        ChatMemoryStore store = new InMemoryChatMemoryStore(20);
         store.append("c1", new UserMessage("hi"), new AssistantMessage("hello"));
 
         var history = store.history("c1");
@@ -20,7 +20,7 @@ class ChatMemoryStoreTest {
 
     @Test
     void boundedToMaxMessagesDroppingOldest() {
-        ChatMemoryStore store = new ChatMemoryStore(4);
+        ChatMemoryStore store = new InMemoryChatMemoryStore(4);
         store.append("c1", new UserMessage("u1"), new AssistantMessage("a1"));
         store.append("c1", new UserMessage("u2"), new AssistantMessage("a2"));
         store.append("c1", new UserMessage("u3"), new AssistantMessage("a3"));
@@ -33,7 +33,7 @@ class ChatMemoryStoreTest {
 
     @Test
     void boundedConversationCountEvictsOldest() {
-        ChatMemoryStore store = new ChatMemoryStore(20, 2);
+        ChatMemoryStore store = new InMemoryChatMemoryStore(20, 2);
         store.append("c1", new UserMessage("u1"));
         store.append("c2", new UserMessage("u2"));
         store.append("c3", new UserMessage("u3")); // evicts c1 (oldest)
@@ -45,7 +45,7 @@ class ChatMemoryStoreTest {
 
     @Test
     void historyIsolatedPerConversation() {
-        ChatMemoryStore store = new ChatMemoryStore(20);
+        ChatMemoryStore store = new InMemoryChatMemoryStore(20);
         store.append("c1", new UserMessage("u1"), new AssistantMessage("a1"));
 
         assertThat(store.history("c2")).isEmpty();
