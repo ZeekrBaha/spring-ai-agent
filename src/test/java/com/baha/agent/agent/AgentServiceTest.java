@@ -19,7 +19,7 @@ class AgentServiceTest {
         when(client.prompt().messages(anyList()).user(anyString()).call().content())
                 .thenReturn("Hello there.");
 
-        AgentService service = new AgentService(client, new ToolCallRecorder(), new ChatMemoryStore(20));
+        AgentService service = new AgentService(client, new ToolCallRecorder(), new InMemoryChatMemoryStore(20));
         ChatResult result = service.chat("hi", "conv-1");
 
         assertThat(result.reply()).isEqualTo("Hello there.");
@@ -32,7 +32,7 @@ class AgentServiceTest {
         when(client.prompt().messages(anyList()).user(anyString()).call().content())
                 .thenThrow(new RuntimeException("openai unreachable"));
 
-        AgentService service = new AgentService(client, new ToolCallRecorder(), new ChatMemoryStore(20));
+        AgentService service = new AgentService(client, new ToolCallRecorder(), new InMemoryChatMemoryStore(20));
 
         assertThatThrownBy(() -> service.chat("hi", "conv-1"))
                 .isInstanceOf(AgentUpstreamException.class);
@@ -43,7 +43,7 @@ class AgentServiceTest {
         ChatClient client = mock(ChatClient.class, RETURNS_DEEP_STUBS);
         when(client.prompt().messages(anyList()).user(anyString()).call().content())
                 .thenReturn(null);
-        ChatMemoryStore memory = new ChatMemoryStore(20);
+        ChatMemoryStore memory = new InMemoryChatMemoryStore(20);
 
         AgentService service = new AgentService(client, new ToolCallRecorder(), memory);
         ChatResult result = service.chat("hi", "conv-1");
@@ -58,7 +58,7 @@ class AgentServiceTest {
         ChatClient client = mock(ChatClient.class, RETURNS_DEEP_STUBS);
         when(client.prompt().messages(anyList()).user(anyString()).call().content())
                 .thenReturn("reply");
-        ChatMemoryStore memory = new ChatMemoryStore(20);
+        ChatMemoryStore memory = new InMemoryChatMemoryStore(20);
 
         AgentService service = new AgentService(client, new ToolCallRecorder(), memory);
         service.chat("question", "conv-1");
