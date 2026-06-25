@@ -1,0 +1,11 @@
+# Local secrets template.
+# Copy this file to  config/application.properties  (same dir, drop ".example")
+# and paste your real key. That copy is gitignored and lives outside src/, so
+# it is never committed and never packaged into the jar.
+#
+#   cp config/application.properties.example config/application.properties
+#
+# Spring Boot auto-loads ./config/application.properties at startup and it
+# overrides the placeholder in src/main/resources/application.yml.
+
+spring.ai.openai.api-key=sk-REPLACE_WITH_YOUR_KEY

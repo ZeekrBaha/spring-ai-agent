@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spring AI Agent</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<main class="app">
+    <header class="topbar">
+        <span class="dot" aria-hidden="true"></span>
+        <h1>Spring AI Agent</h1>
+        <span class="sub">tools: calculator · time · weather · web-fetch</span>
+    </header>
+
+    <section id="messages" class="messages" aria-live="polite" aria-label="Conversation">
+        <div id="empty" class="empty">
+            <p class="empty-title">Ask me to calculate, tell time, check weather, or fetch a page.</p>
+            <div class="examples">
+                <button class="chip-btn" data-example="What is 17.5 * 3, and what time is it in Asia/Tokyo?">17.5 × 3 + time in Tokyo</button>
+                <button class="chip-btn" data-example="What's the weather in Paris right now?">weather in Paris</button>
+                <button class="chip-btn" data-example="Fetch https://example.com and summarize it">fetch example.com</button>
+            </div>
+        </div>
+    </section>
+
+    <form id="composer" class="composer" autocomplete="off">
+        <textarea id="input" rows="1" placeholder="Message the agent…  (Enter to send, Shift+Enter for newline)"
+                  aria-label="Message the agent"></textarea>
+        <button id="send" type="submit" class="send" aria-label="Send message">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M22 2 11 13"></path>
+                <path d="M22 2 15 22l-4-9-9-4 20-7z"></path>
+            </svg>
+        </button>
+    </form>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

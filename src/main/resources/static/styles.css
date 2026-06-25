@@ -1,0 +1,161 @@
+/* Tokens — verbatim from docs/implementation/design-system.md */
+:root {
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
+  --fs-300: 0.8125rem; --fs-400: 0.9375rem; --fs-500: 1.125rem; --fs-700: 1.5rem;
+
+  --bg:        #14161a;
+  --surface:   #1c1f25;
+  --surface-2: #23272e;
+  --border:    #2c313a;
+  --text:      #e7eaee;
+  --text-dim:  #9aa3af;
+  --accent:    #2dd4bf;
+  --accent-ink:#06302b;
+  --danger:    #f87171;
+
+  --r-bubble: 14px; --r-input: 10px; --r-chip: 6px;
+  --shadow-pop: 0 6px 20px -8px rgba(0,0,0,.55);
+
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--fs-400);
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+}
+
+.app {
+  max-width: 760px;
+  margin: 0 auto;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Top bar */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s4) var(--s5);
+  border-bottom: 1px solid var(--border);
+}
+.topbar h1 { font-size: var(--fs-500); font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+.topbar .sub { margin-left: auto; color: var(--text-dim); font-size: var(--fs-300); font-family: var(--font-mono); }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+
+/* Messages */
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--s5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+}
+
+.empty {
+  margin: auto;
+  text-align: center;
+  max-width: 460px;
+}
+.empty-title { color: var(--text-dim); font-size: var(--fs-500); margin-bottom: var(--s5); }
+.examples { display: flex; flex-wrap: wrap; gap: var(--s2); justify-content: center; }
+.chip-btn {
+  font-family: var(--font-sans);
+  font-size: var(--fs-300);
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: var(--s2) var(--s3);
+  cursor: pointer;
+}
+.chip-btn:hover { border-color: var(--accent); }
+
+/* Bubbles */
+.row { display: flex; }
+.row.user { justify-content: flex-end; }
+.row.assistant { justify-content: flex-start; }
+
+.bubble {
+  max-width: 78%;
+  padding: var(--s3) var(--s4);
+  border-radius: var(--r-bubble);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+.row.user .bubble { background: var(--accent); color: var(--accent-ink); border-bottom-right-radius: var(--s1); }
+.row.assistant .bubble { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-bottom-left-radius: var(--s1); }
+.row.error .bubble { background: var(--surface); color: var(--text); border: 1px solid var(--danger); border-bottom-left-radius: var(--s1); }
+
+/* Tool chips */
+.tools { display: flex; flex-wrap: wrap; gap: var(--s1); margin-top: var(--s2); }
+.tool-chip {
+  font-family: var(--font-mono);
+  font-size: var(--fs-300);
+  color: var(--text-dim);
+  background: var(--surface-2);
+  border-radius: var(--r-chip);
+  padding: 2px var(--s2);
+}
+
+/* Loading dots */
+.dots span {
+  display: inline-block; width: 6px; height: 6px; margin-right: 4px;
+  background: var(--text-dim); border-radius: 50%;
+  animation: blink 1.2s infinite both;
+}
+.dots span:nth-child(2) { animation-delay: .2s; }
+.dots span:nth-child(3) { animation-delay: .4s; }
+@keyframes blink { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+
+.retry {
+  margin-top: var(--s2);
+  font-size: var(--fs-300);
+  color: var(--accent);
+  background: none; border: none; padding: 0; cursor: pointer;
+}
+
+/* Composer */
+.composer {
+  display: flex;
+  gap: var(--s3);
+  padding: var(--s4) var(--s5);
+  border-top: 1px solid var(--border);
+  align-items: flex-end;
+}
+#input {
+  flex: 1;
+  resize: none;
+  max-height: 160px;
+  font-family: var(--font-sans);
+  font-size: var(--fs-400);
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-input);
+  padding: var(--s3) var(--s4);
+}
+#input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.send {
+  flex: none;
+  width: 44px; height: 44px;
+  display: grid; place-items: center;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border: none;
+  border-radius: var(--r-input);
+  cursor: pointer;
+  box-shadow: var(--shadow-pop);
+}
+.send:focus { outline: 2px solid var(--text); outline-offset: 2px; }
+.send:disabled { opacity: .5; cursor: not-allowed; }

@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "feat/**"]
+  pull_request:
+
+jobs:
+  build:
+    name: Build, test & verify (JDK 21)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Build + test + package
+        run: mvn -B verify
+      - name: Static analysis (SpotBugs — gating)
+        run: mvn -B compile spotbugs:check
+
+  dependency-review:
+    name: Dependency vulnerability review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    # Gating: Dependency Graph is enabled on the repo, so this blocks on high-severity CVEs.
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan dependencies for known CVEs
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high

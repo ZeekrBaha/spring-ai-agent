@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  SpotBugs exclusions.
+
+  EI_EXPOSE_REP / EI_EXPOSE_REP2: "may expose internal representation by
+  storing/returning a mutable object." These fire on our records (ChatResult,
+  ChatResponse), the AgentTools holder, and AgentService holding the injected
+  (Spring-managed, intentionally shared) ChatMemoryStore. Defensive-copying DTO
+  records and Spring singletons adds noise without real safety benefit, so this
+  whole low-value category is excluded. All other SpotBugs detectors stay on and
+  gate CI.
+-->
+<FindBugsFilter>
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP"/>
+    </Match>
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+</FindBugsFilter>
