@@ -14,17 +14,24 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Per-client token-bucket rate limit on the chat endpoints ({@code /api/chat}
  * and {@code /api/chat/stream}), so a single caller cannot drain OpenAI tokens.
  * Over the limit returns {@code 429} with a {@code Retry-After} header.
  *
- * <p>Client key = first {@code X-Forwarded-For} hop if present, else the remote
- * address. In-memory and per-instance (single-node MVP; distributed limiting is
- * a non-goal). The bucket map is soft-capped to bound memory under an IP flood.
+ * <p>Client key = the remote address. {@code X-Forwarded-For} is honored ONLY
+ * when {@code agent.ratelimit.trust-forwarded-for=true} (i.e. you run behind a
+ * trusted reverse proxy) — otherwise a client could spoof the header to mint a
+ * fresh bucket per request and bypass the limit entirely.
+ *
+ * <p>In-memory and per-instance (single-node MVP; distributed limiting is a
+ * non-goal). The bucket map is an access-ordered LRU bounded at
+ * {@code MAX_TRACKED_CLIENTS}; eviction drops only the least-recently-used
+ * entry (never resets everyone's limit).
  */
 @Component
 public class RateLimitFilter extends OncePerRequestFilter {
@@ -34,16 +41,25 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private final int capacity;
     private final long refillTokens;
     private final Duration refillPeriod;
-    private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
+    private final boolean trustForwardedFor;
+    private final Map<String, Bucket> buckets = Collections.synchronizedMap(
+            new LinkedHashMap<>(16, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<String, Bucket> eldest) {
+                    return size() > MAX_TRACKED_CLIENTS;
+                }
+            });
 
     @Autowired
     public RateLimitFilter(
             @Value("${agent.ratelimit.capacity:20}") int capacity,
             @Value("${agent.ratelimit.refill-tokens:20}") long refillTokens,
-            @Value("${agent.ratelimit.refill-period:PT1M}") Duration refillPeriod) {
+            @Value("${agent.ratelimit.refill-period:PT1M}") Duration refillPeriod,
+            @Value("${agent.ratelimit.trust-forwarded-for:false}") boolean trustForwardedFor) {
         this.capacity = capacity;
         this.refillTokens = refillTokens;
         this.refillPeriod = refillPeriod;
+        this.trustForwardedFor = trustForwardedFor;
     }
 
     @Override
@@ -73,9 +89,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
     }
 
     private Bucket bucketFor(String key) {
-        if (buckets.size() > MAX_TRACKED_CLIENTS) {
-            buckets.clear(); // crude bound; acceptable for single-node MVP
-        }
+        // Access-ordered LRU evicts only the eldest entry past the cap.
         return buckets.computeIfAbsent(key, k -> newBucket());
     }
 
@@ -87,11 +101,16 @@ public class RateLimitFilter extends OncePerRequestFilter {
         return Bucket.builder().addLimit(limit).build();
     }
 
-    /** First X-Forwarded-For hop (client) if present, else the direct remote address. */
+    /**
+     * The remote address by default; the first X-Forwarded-For hop only when a
+     * trusted proxy is configured (otherwise the header is spoofable).
+     */
     private String clientKey(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
+        if (trustForwardedFor) {
+            String forwarded = request.getHeader("X-Forwarded-For");
+            if (forwarded != null && !forwarded.isBlank()) {
+                return forwarded.split(",")[0].trim();
+            }
         }
         String remote = request.getRemoteAddr();
         return remote == null ? "unknown" : remote;

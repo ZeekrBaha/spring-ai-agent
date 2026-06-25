@@ -9,6 +9,10 @@ A single turn routing to two tools — the reply shows which tools fired (`calcu
 
 ![Chat UI](docs/screenshots/chat.png)
 
+The reply streams in token-by-token over SSE (weather query → `weather` tool):
+
+![Streaming](docs/screenshots/streaming.png)
+
 ## What it does
 Ask in natural language; the agent routes to the right tool(s) and composes one answer:
 - **calculator** — arithmetic
@@ -35,6 +39,12 @@ cp config/application.properties.example config/application.properties
 mvn spring-boot:run
 ```
 The app boots and serves the UI even without a key; chat calls then return a friendly `502`.
+
+**Persistent memory (optional):** conversations survive restarts when run against Postgres.
+```bash
+docker compose up -d          # postgres:16
+mvn spring-boot:run -Dspring-boot.run.profiles=postgres
+```
 
 ## API
 `POST /api/chat`
@@ -77,38 +87,45 @@ Fixed dependency direction (lower never depends on higher):
 Config (app.yml, ChatClientConfig) → Tools (@Tool beans) → AgentService (ChatClient) → Controller (REST) → UI (static)
 ```
 - **Tool loop** is owned by Spring AI's `ToolCallingAdvisor` — we don't hand-roll it.
-- **`toolsUsed`** is captured by wrapping each `ToolCallback` in a `RecordingToolCallback`; a `ThreadLocal` recorder scopes captured names to one synchronous request.
+- **`toolsUsed`** is captured by wrapping each `ToolCallback` in a `RecordingToolCallback` bound to a per-call `ToolCallSink` — call-scoped and thread-safe, so it stays correct under streaming (reactor threads), unlike a `ThreadLocal`.
 - **Tools are sinks**: calculator/time are pure; weather/web-fetch each have one declared outbound-HTTP boundary, visible in the return value.
-- **Memory**: `ChatMemoryStore` is in-memory, bounded per conversation (20 messages) and in total (1000 conversations, LRU).
+- **Memory** is a seam (`ChatMemoryStore` interface): `InMemoryChatMemoryStore` (default, bounded per-conversation + LRU) or `JdbcChatMemoryStore` (Postgres, `postgres` profile). Both keep the same bounded contract.
+- **Streaming**: `AgentService.chatStream` returns a `Flux<ChatStreamEvent>` (token → done/error); the SSE controller maps events to `text/event-stream`.
 - **Provider seam**: swapping OpenAI→Ollama/Claude is a starter dependency + property change; `AgentService` depends only on `ChatClient`.
 
 ## Repo map
 ```
 src/main/java/com/baha/agent/
 ├─ Application.java
-├─ config/      ChatClientConfig (registers tools), AgentTools
+├─ config/      ChatClientConfig, AgentTools, McpConfig (MCP tool provider)
 ├─ tools/       CalculatorTool, TimeTool, WeatherTool, WebFetchTool   (@Tool beans)
-├─ agent/       AgentService, ChatMemoryStore, ToolCallRecorder,
-│               RecordingToolCallback, ChatResult, AgentUpstreamException
-└─ web/         ChatController, GlobalExceptionHandler, dto/{ChatRequest,ChatResponse}
+├─ agent/       AgentService (chat + chatStream), ChatMemoryStore (interface),
+│               InMemoryChatMemoryStore, JdbcChatMemoryStore, ToolCallSink,
+│               RecordingToolCallback, ChatResult, ChatStreamEvent, AgentUpstreamException
+└─ web/         ChatController, ChatStreamController (SSE), GlobalExceptionHandler,
+                filter/RateLimitFilter, dto/{ChatRequest,ChatResponse}
 src/main/resources/
-├─ application.yml
+├─ application.yml            # + postgres profile, actuator, MCP server
+├─ application-mcp-stdio.yml  # stdio MCP profile (clean stdout)
+├─ db/migration/V1__chat_message.sql   # Flyway
 └─ static/      index.html, app.js, styles.css   (vanilla chat UI)
+docker-compose.yml            # postgres:16
 docs/
-├─ implementation/   spec → plan → validation-report (incl. refutation pass)
+├─ implementation/   v1 spec + v2/ (extensions spec → plan → validation-report)
 ├─ reviews/          repo engineering review
-└─ screenshots/
+└─ screenshots/      chat.png, streaming.png
 .github/workflows/ci.yml
 ```
 
 ## Test & quality
 ```bash
-mvn verify                                          # 36 tests, build, package
-mvn compile com.github.spotbugs:spotbugs-maven-plugin:4.8.6.4:check   # static analysis
+mvn verify          # 57 unit + 8 integration (Testcontainers) tests, build, package
+mvn spotbugs:check  # static analysis (gating)
 ```
-- **TDD throughout** — RED→GREEN per task; see commit history `T0`→`T9`.
-- **CI** (`.github/workflows/ci.yml`): `mvn -B verify` + SpotBugs on every push/PR; GitHub dependency-review (fails on high-severity CVEs) on PRs.
-- An adversarial **refutation pass** (fresh agent) and a **live LLM tool-routing eval** are recorded in `docs/implementation/validation-report.md`.
+- **TDD throughout** — RED→GREEN per task; see commit history (`T0`→`T9`, then `B-T*`/`A-T*`/`C-T*`/`D-T*`).
+- **CI** (`.github/workflows/ci.yml`): `mvn -B verify` + SpotBugs + GitHub dependency-review, all gating on push/PR.
+- Integration tests run real Postgres via **Testcontainers** (Docker required for `mvn verify`).
+- Adversarial **refutation passes** + a **live LLM tool-routing eval** recorded in `docs/implementation/validation-report.md` and `docs/implementation/v2/validation-report.md`.
 
 ## Security notes
 - API key via env var or gitignored `config/` file only; never in source, never in the jar, never sent to the browser.
@@ -116,11 +133,12 @@ mvn compile com.github.spotbugs:spotbugs-maven-plugin:4.8.6.4:check   # static a
 - Request bodies validated (`@NotBlank`, `@Size(4000)`); tool calls log **name only** (no sensitive args).
 
 ## Limitations / next steps
-- **No auth / rate limit** on `/api/chat` — it spends OpenAI tokens; fine locally, add a limiter before exposing publicly.
-- **DNS-rebinding TOCTOU** residual in web-fetch (validate-then-connect re-resolves) — needs socket-level IP pinning. Documented in `validation-report.md`.
-- **Memory is in-process** — lost on restart; the `ChatMemoryStore` seam is ready for a persistent backend.
+- **Rate limit is single-node + in-memory.** Keyed on remote IP; honors `X-Forwarded-For` only when `agent.ratelimit.trust-forwarded-for=true` (set this only behind a trusted proxy). Distributed (Redis) limiting is a non-goal.
+- **No auth** on `/api/chat`, `/api/chat/stream`, or the MCP endpoint — local use; add auth before public exposure.
+- **Postgres memory `seq` is instance-scoped** — concurrent appends are safe on one node, but multi-node writers could collide on `(conversation_id, seq)` (horizontal scaling is a non-goal).
+- **DNS-rebinding TOCTOU** residual in web-fetch (validate-then-connect re-resolves) — needs socket-level IP pinning.
 - Model replies may contain LaTeX (`\( … \)`) rendered as plain text in the minimal UI.
-- No streaming (SSE), metrics/tracing, or per-tool timeouts yet.
+- No per-tool timeouts or distributed tracing yet.
 
 ## Configuration
 | Property | Default | Meaning |

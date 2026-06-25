@@ -2,7 +2,10 @@
 
 Re-read first on any fresh/resumed session. Update after EVERY task.
 
-## Status: BUILDING on feat/v2-extensions. Feature B (Postgres memory) DONE. Now Feature A (streaming).
+## Status: ALL 4 FEATURES DONE + refutation fixes applied. 57 unit + 8 IT green, SpotBugs clean. Ready for PR.
+
+Features A (SSE streaming), B (Postgres memory), C (rate limit + metrics), D (MCP server) complete.
+Refutation pass: 1 high (XFF rate-limit bypass) + 3 medium — all resolved. See v2/validation-report.md.
 
 ### Env note (Docker 29 + Testcontainers)
 Docker Engine 29 min API = 1.44; Testcontainers' docker-java 3.4.2 probes v1.43 → 400. Fixed locally via `~/.docker-java.properties` (`api.version=1.44` + DOCKER_HOST). CI's Docker is compatible. ITs run under maven-failsafe in the verify phase.

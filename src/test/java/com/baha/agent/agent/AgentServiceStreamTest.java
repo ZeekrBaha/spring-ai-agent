@@ -1,9 +1,12 @@
 package com.baha.agent.agent;
 
 import com.baha.agent.config.AgentTools;
+import com.baha.agent.tools.CalculatorTool;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.support.ToolCallbacks;
+import org.springframework.ai.tool.ToolCallback;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
@@ -54,6 +57,26 @@ class AgentServiceStreamTest {
 
         assertThat(memory.history("c1")).extracting(m -> m.getText())
                 .containsExactly("q", "ab");
+    }
+
+    @Test
+    void perCallStreamingCallbacksCaptureToolFiredOnAnotherThread() throws InterruptedException {
+        // During streaming the tool loop runs off the request thread. The
+        // callbacks AgentService builds for a turn must still land in that
+        // turn's sink — this would FAIL with a ThreadLocal recorder.
+        ToolCallback calculator = ToolCallbacks.from(new CalculatorTool())[0];
+        AgentService service = new AgentService(mockStreaming(Flux.just("x")),
+                new AgentTools(List.of(calculator)), new InMemoryChatMemoryStore(20),
+                new SimpleMeterRegistry());
+
+        ToolCallSink sink = new ToolCallSink();
+        List<ToolCallback> perCall = service.recordingCallbacks(sink);
+
+        Thread worker = new Thread(() -> perCall.get(0).call("{\"expression\":\"2 + 2\"}"));
+        worker.start();
+        worker.join();
+
+        assertThat(sink.usedTools()).containsExactly("calculate");
     }
 
     @Test
