@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: spring-ai-agent
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      chat:
+        options:
+          model: gpt-4o-mini
+          temperature: 0.2
+          max-tokens: 800
+
+server:
+  port: 8080
+
+logging:
+  level:
+    com.baha.agent: INFO
