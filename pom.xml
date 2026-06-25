@@ -77,6 +77,11 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>io.projectreactor</groupId>
+            <artifactId>reactor-test</artifactId>
+            <scope>test</scope>
+        </dependency>
         <!-- Testcontainers for real-Postgres integration tests -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

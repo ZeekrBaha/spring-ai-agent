@@ -7,6 +7,8 @@ import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 
@@ -55,6 +57,37 @@ public class AgentService {
 
         memory.append(conversationId, new UserMessage(message), new AssistantMessage(reply));
         return new ChatResult(reply, toolsUsed);
+    }
+
+    /**
+     * Streaming variant: emits {@code token} events as the reply is generated,
+     * then a terminal {@code done} event carrying the full reply, captured
+     * toolsUsed, and conversationId. Persists the turn on completion. Any
+     * upstream failure terminates as a single {@code error} event (no hang).
+     */
+    public Flux<ChatStreamEvent> chatStream(String message, String conversationId) {
+        List<Message> history = memory.history(conversationId);
+        ToolCallSink sink = new ToolCallSink();
+        StringBuilder full = new StringBuilder();
+
+        Flux<ChatStreamEvent> tokens = chatClient.prompt()
+                .toolCallbacks(recordingCallbacks(sink))
+                .messages(history)
+                .user(message)
+                .stream()
+                .content()
+                .doOnNext(full::append)
+                .map(ChatStreamEvent::token);
+
+        Mono<ChatStreamEvent> done = Mono.fromSupplier(() -> {
+            String reply = full.toString();
+            memory.append(conversationId, new UserMessage(message), new AssistantMessage(reply));
+            return ChatStreamEvent.done(reply, sink.usedTools(), conversationId);
+        });
+
+        return tokens.concatWith(done)
+                .onErrorResume(e -> Flux.just(ChatStreamEvent.error(
+                        "The agent could not complete your request (upstream error).")));
     }
 
     /** Wrap the raw tool callbacks for this call so invocations land in {@code sink}. */
