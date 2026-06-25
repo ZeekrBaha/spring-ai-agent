@@ -39,6 +39,21 @@ class AgentServiceTest {
     }
 
     @Test
+    void nullModelContentBecomesEmptyReplyNotNpe() {
+        ChatClient client = mock(ChatClient.class, RETURNS_DEEP_STUBS);
+        when(client.prompt().messages(anyList()).user(anyString()).call().content())
+                .thenReturn(null);
+        ChatMemoryStore memory = new ChatMemoryStore(20);
+
+        AgentService service = new AgentService(client, new ToolCallRecorder(), memory);
+        ChatResult result = service.chat("hi", "conv-1");
+
+        assertThat(result.reply()).isEmpty();
+        assertThat(memory.history("conv-1")).extracting(m -> m.getText())
+                .containsExactly("hi", "");
+    }
+
+    @Test
     void persistsTurnToMemory() {
         ChatClient client = mock(ChatClient.class, RETURNS_DEEP_STUBS);
         when(client.prompt().messages(anyList()).user(anyString()).call().content())

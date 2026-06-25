@@ -9,10 +9,13 @@ loop exposing four Spring `@Tool` beans (calculator, time, weather, web-fetch) t
 gpt-4o-mini, fronted by a REST `/api/chat` endpoint and a static chat UI.
 
 ## Verdict
-Code is solid and ship-ready **as an MVP** — but NOT ship-ready by the portfolio
-documentation/CI standard. Strong TDD discipline and real security thought. Blockers
-are process/docs, not correctness: zero CI gate, no lint/static-analysis, no dependency
-vulnerability scan, thin README with no UI screenshots.
+**Updated after fixes (see Re-Analysis below): ship-ready as an MVP.** All High + Medium
+issues from the original pass are closed and independently re-verified live (`mvn verify`,
+36 tests green). Only Low nits remain (non-gating CI security steps).
+
+*Original verdict (pre-fix):* Code solid and ship-ready as an MVP but NOT by the portfolio
+documentation/CI standard — zero CI gate, no static analysis, no dependency vuln scan, thin
+README with no UI screenshots.
 
 ## What Was Done Well
 - **Real TDD.** Commit history shows red→green per task (T2–T9, each "N tests green (TDD)").
@@ -98,3 +101,40 @@ seam, per-tool timeouts.
 - **Deliberately deferred:** Spotless/google-java-format (mass-reformat churn outweighs value now); per-IP rate limiting on `/api/chat` (tracked under README "Limitations / next steps", low risk for local use).
 
 Test count: 34 → **36**. `mvn verify` green.
+
+## Re-Analysis (validated live — 2026-06-24 21:32)
+Re-ran against the live tree, not the claims above. Every fix confirmed present AND working.
+
+**Verified resolved:**
+- **CI** — `.github/workflows/ci.yml` present. `build` job runs `mvn -B verify` on push
+  (`main`, `feat/**`) and PR — this **does gate** (fails CI on red). Enforcement gap closed.
+- **Exception handling** — `AgentUpstreamException` exists; `AgentService.chat()` wraps only
+  the model/tool-loop call, rethrows as upstream. `GlobalExceptionHandler` maps it → 502,
+  any other `RuntimeException` → 500 (logged via `log.error`). Confirmed by 2 new tests
+  (`genuineBugSurfacesAs500NotMaskedAs502`, `modelCallFailureIsWrappedAsUpstreamException`).
+- **README** — now 103 lines with Screenshots / Architecture / Repo map / Test & quality /
+  Limitations sections. `docs/screenshots/chat.png` is a real 37KB image.
+- **Tests** — `Tests run: 36, Failures: 0, Errors: 0, Skipped: 0` / `BUILD SUCCESS` (live).
+
+**Residual nits (Low — not blocking):**
+1. **Both CI security steps are informational only.** `dependency-review` has
+   `continue-on-error: true`; SpotBugs runs `…:check || true`. Neither can fail CI, so the
+   "CVE scan" does not actually block a vulnerable dependency. To make it enforce: drop
+   `continue-on-error` on dependency-review (needs repo Dependency Graph enabled).
+2. **SpotBugs not in `pom.xml`** — invoked via plugin coordinates in CI only; can't run
+   `mvn spotbugs:check` locally.
+
+**State:** working tree clean, in sync with `origin/feat/agent-mvp`.
+
+**Final verdict:** PR materially stronger — High + all Medium issues closed and verified.
+Ship-ready as MVP.
+
+## Residual nits resolved (2026-06-25)
+- **CI security steps now gate.** Dropped `continue-on-error` on `dependency-review`
+  (repo Dependency Graph enabled) and removed `|| true` from SpotBugs — both block CI now.
+- **SpotBugs in `pom.xml`** (`spotbugs-maven-plugin`, effort Max / threshold Medium) — runs
+  locally via `mvn spotbugs:check`. First run surfaced a real bug: `NP_NULL_ON_SOME_PATH`
+  in `AgentService.chat` (model `content()` may be null → NPE into memory) — fixed (null →
+  empty reply) with regression test `nullModelContentBecomesEmptyReplyNotNpe`. The noisy
+  `EI_EXPOSE_REP` record/DI category is excluded via `spotbugs-exclude.xml` (documented).
+- Tests: 36 → **37**. `mvn verify` + `mvn spotbugs:check` green.

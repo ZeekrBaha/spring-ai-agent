@@ -41,6 +41,9 @@ public class AgentService {
             // Model/tool-loop failure (network, auth, rate limit) — not our bug.
             throw new AgentUpstreamException(e);
         }
+        if (reply == null) {
+            reply = ""; // model can return no content; never propagate null into memory
+        }
         List<String> toolsUsed = recorder.drain();
 
         memory.append(conversationId, new UserMessage(message), new AssistantMessage(reply));

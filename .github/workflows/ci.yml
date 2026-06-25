@@ -19,15 +19,14 @@ jobs:
           cache: maven
       - name: Build + test + package
         run: mvn -B verify
-      - name: Static analysis (SpotBugs — informational)
-        run: mvn -B compile com.github.spotbugs:spotbugs-maven-plugin:4.8.6.4:check || true
+      - name: Static analysis (SpotBugs — gating)
+        run: mvn -B compile spotbugs:check
 
   dependency-review:
     name: Dependency vulnerability review
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    # Informational: requires the repo's Dependency Graph feature; never blocks the PR.
-    continue-on-error: true
+    # Gating: Dependency Graph is enabled on the repo, so this blocks on high-severity CVEs.
     permissions:
       contents: read
     steps:
