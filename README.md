@@ -42,7 +42,34 @@ The app boots and serves the UI even without a key; chat calls then return a fri
 { "message": "weather in Paris and what's 12*9?", "conversationId": "optional" }
 → { "reply": "...", "toolsUsed": ["weather","calculator"], "conversationId": "..." }
 ```
-Status codes: `200` ok · `400` blank/too-long message · `502` upstream model failure · `500` internal bug (distinct, not masked).
+Status codes: `200` ok · `400` blank/too-long message · `429` rate-limited (`Retry-After`) · `502` upstream model failure · `500` internal bug (distinct, not masked).
+
+Streaming: `POST /api/chat/stream` (`text/event-stream`) emits `token` events then a terminal `done` (or `error`) event.
+
+## MCP server
+The four tools are also exposed over the **Model Context Protocol**, so MCP clients (Claude Desktop, Cursor, …) can call them.
+
+- **HTTP/SSE** (runs with the web app): SSE endpoint at `/sse`, messages at `/mcp/messages`.
+- **stdio** (separate process, clean stdout):
+  ```bash
+  java -Dspring.profiles.active=mcp-stdio -jar target/agent-0.1.0.jar
+  ```
+  The `mcp-stdio` profile turns off the web server and the banner and routes all logging to **stderr**, so stdout carries only the MCP JSON-RPC stream.
+
+Claude Desktop config (`claude_desktop_config.json`):
+```json
+{
+  "mcpServers": {
+    "spring-ai-agent": {
+      "command": "java",
+      "args": ["-Dspring.profiles.active=mcp-stdio", "-jar",
+               "/absolute/path/to/agent-0.1.0.jar"],
+      "env": { "OPENAI_API_KEY": "sk-..." }
+    }
+  }
+}
+```
+Verified over stdio: `tools/list` returns `calculate`, `currentTime`, `weather`, `fetchUrl`.
 
 ## Architecture
 Fixed dependency direction (lower never depends on higher):
